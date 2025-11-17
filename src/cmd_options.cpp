@@ -10,18 +10,18 @@ ProgramOptions::~ProgramOptions() = default;
 void ProgramOptions::Parse(int argc, char *argv[]) {
   std::string cmd;
   desc_.add_options()
-    ("help", "produce help message")
-    ("command", po::value<std::string>(&cmd)->default_value("encrypt"), "command")
-    ("output", po::value<std::string>(&outputFile_)->default_value("output.txt"), "output file path");
-    ("input", po::value<std::string>(&inputFile_)->required(), "input file path");
-    ("password", po::value<std::string>(&password_)->required(), "password");
+    ("help,h", "produce help message")
+    ("command,c", po::value<std::string>(&cmd)->default_value("encrypt"), "command")
+    ("input,i", po::value<std::string>(&inputFile_)->required(), "input file path")
+    ("output,o", po::value<std::string>(&outputFile_)->default_value("output.txt"), "output file path")
+    ("password,p", po::value<std::string>(&password_), "password");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc_), vm);
 
-  if (vm.count("help")) {
-    std::cout << desc_ << std::endl;
-    exit(-1);
+  if (vm.empty() || vm.count("help")) {
+    std::cout << desc_ << "\n";
+    std::exit(0);
   }
 
   po::notify(vm);

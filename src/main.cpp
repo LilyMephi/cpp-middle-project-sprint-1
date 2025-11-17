@@ -4,37 +4,12 @@
 #include <array>
 #include <iostream>
 #include <openssl/evp.h>
-#include <iostream>
 #include <stdexcept>
 #include <string>
-
-struct AesCipherParams {
-    static const size_t KEY_SIZE = 32;             // AES-256 key size
-    static const size_t IV_SIZE = 16;              // AES block size (IV length)
-    const EVP_CIPHER *cipher = EVP_aes_256_cbc();  // Cipher algorithm
-
-    int encrypt;                              // 1 for encryption, 0 for decryption
-    std::array<unsigned char, KEY_SIZE> key;  // Encryption key
-    std::array<unsigned char, IV_SIZE> iv;    // Initialization vector
-};
-
-AesCipherParams CreateChiperParamsFromPassword(std::string_view password) {
-    AesCipherParams params;
-    constexpr std::array<unsigned char, 8> salt = {'1', '2', '3', '4', '5', '6', '7', '8'};
-
-    int result = EVP_BytesToKey(params.cipher, EVP_sha256(), salt.data(),
-                                reinterpret_cast<const unsigned char *>(password.data()), password.size(), 1,
-                                params.key.data(), params.iv.data());
-
-    if (result == 0) {
-        throw std::runtime_error{"Failed to create a key from password"};
-    }
-
-    return params;
-}
+#include <fstream>
 
 int main(int argc, char *argv[]) {
-    try {
+    try { 
         CryptoGuard::ProgramOptions prg_opt;
         prg_opt.Parse(argc, argv);
         //
@@ -76,8 +51,8 @@ int main(int argc, char *argv[]) {
             output.push_back(outBuf[i]);
         }
         EVP_CIPHER_CTX_free(ctx);
-        std::cout << "String encoded successfully. Result: "<< output <<"\n\n";
-        EVP_cleanup();
+        std::cout << "String encoded successfully. Result: " << output << "\n\n";
+        
         //
         // Конец примера
         //
@@ -86,13 +61,29 @@ int main(int argc, char *argv[]) {
 
         CryptoGuard::CryptoGuardCtx cryptoCtx;
 
+        options.Parse(argc, argv);
+        
+        std::fstream input_file(options.GetInputFile().c_str(), std::ios::in);
+        if (!input_file.is_open()) {
+            std::cerr << "Can't open the input file 4444\n";
+            return 1;
+        }
+
+
+        std::fstream output_file(options.GetOutputFile().c_str(), std::ios::out | std::ios::trunc);
+        if (!output_file.is_open()) {
+            std::cerr << "Can't open the output file\n";
+            return 1;
+        }
         using COMMAND_TYPE = CryptoGuard::ProgramOptions::COMMAND_TYPE;
         switch (options.GetCommand()) {
         case COMMAND_TYPE::ENCRYPT:
+            cryptoCtx.EncryptFile(input_file,output_file, options.GetPassword());
             std::cout << "File encoded successfully\n";
             break;
 
         case COMMAND_TYPE::DECRYPT:
+            cryptoCtx.DecryptFile(input_file,output_file, options.GetPassword());
             std::cout << "File decoded successfully\n";
             break;
 
@@ -103,7 +94,11 @@ int main(int argc, char *argv[]) {
         default:
             throw std::runtime_error{"Unsupported command"};
         }
-
+    
+        input_file.close();
+        output_file.close();
+        EVP_cleanup();
+    
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;

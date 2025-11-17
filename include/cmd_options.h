@@ -3,7 +3,7 @@
 #include <boost/program_options.hpp>
 #include <string>
 #include <unordered_map>
-
+#include <iostream>
 namespace CryptoGuard {
 
 class ProgramOptions {

@@ -4,7 +4,7 @@
 #include <array>
 #include <iostream>
 #include <openssl/evp.h>
-#include <print>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 
@@ -35,6 +35,8 @@ AesCipherParams CreateChiperParamsFromPassword(std::string_view password) {
 
 int main(int argc, char *argv[]) {
     try {
+        CryptoGuard::ProgramOptions prg_opt;
+        prg_opt.Parse(argc, argv);
         //
         // OpenSSL пример использования:
         //
@@ -74,7 +76,7 @@ int main(int argc, char *argv[]) {
             output.push_back(outBuf[i]);
         }
         EVP_CIPHER_CTX_free(ctx);
-        std::print("String encoded successfully. Result: '{}'\n\n", output);
+        std::cout << "String encoded successfully. Result: "<< output <<"\n\n";
         EVP_cleanup();
         //
         // Конец примера
@@ -87,15 +89,15 @@ int main(int argc, char *argv[]) {
         using COMMAND_TYPE = CryptoGuard::ProgramOptions::COMMAND_TYPE;
         switch (options.GetCommand()) {
         case COMMAND_TYPE::ENCRYPT:
-            std::print("File encoded successfully\n");
+            std::cout << "File encoded successfully\n";
             break;
 
         case COMMAND_TYPE::DECRYPT:
-            std::print("File decoded successfully\n");
+            std::cout << "File decoded successfully\n";
             break;
 
         case COMMAND_TYPE::CHECKSUM:
-            std::print("Checksum: {}\n", "CHECKSUM_NOT_IMPLEMENTED");
+            std::cout << "Checksum: \n CHECKSUM_NOT_IMPLEMENTED";
             break;
 
         default:
@@ -103,7 +105,7 @@ int main(int argc, char *argv[]) {
         }
 
     } catch (const std::exception &e) {
-        std::print(std::cerr, "Error: {}\n", e.what());
+        std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
 

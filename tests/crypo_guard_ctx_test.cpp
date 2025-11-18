@@ -1,3 +1,4 @@
+#include "chip_params.h"
 #include "crypto_guard_ctx.h"
 #include <fstream>
 #include <gtest/gtest.h>
@@ -6,7 +7,7 @@
 void Encrypt(const std::string &input, std::string &output, const std::string &password) {
     auto *ctx = EVP_CIPHER_CTX_new();
     try {
-        auto params = CreateChiperParamsFromPassword(password);
+        auto params = chiperParams::CreateChiperParamsFromPassword(password);
         params.encrypt = 1;
 
         // Инициализируем cipher
@@ -39,7 +40,7 @@ void Encrypt(const std::string &input, std::string &output, const std::string &p
 void Decrypt(const std::string &input, std::string &output, const std::string &password) {
     auto *ctx = EVP_CIPHER_CTX_new();
     try {
-        auto params = CreateChiperParamsFromPassword(password);
+        auto params = chiperParams::CreateChiperParamsFromPassword(password);
         params.encrypt = 0;
 
         // Инициализируем cipher
@@ -217,8 +218,44 @@ TEST(CryptoGuardChecksumTest, CheckSum) {
     CryptoGuard::CryptoGuardCtx cryptoCtx;
     std::string content = "Hello, World";
     std::stringstream InStream(content);
-    
+
     std::string checksum = cryptoCtx.CalculateChecksum(InStream);
 
     EXPECT_FALSE(checksum.empty());
+}
+
+TEST(CryptoGuardCtxTest, CalculateChecksum) {
+    CryptoGuard::CryptoGuardCtx cryptoGuard;
+
+    std::string input = "Hello, world!";
+    std::stringstream ss(input);
+
+    std::string expectedHash = "315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3";
+    // SHA-256 "Hello, world!"
+
+    std::string actualHash = cryptoGuard.CalculateChecksum(ss);
+
+    EXPECT_EQ(actualHash, expectedHash);
+}
+
+TEST(CryptoGuardCtxTest, ChecksumEmptyStream) {
+    CryptoGuard::CryptoGuardCtx cryptoGuard;
+
+    std::stringstream ss;
+
+    std::string expectedHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    // SHA-256 ""
+
+    std::string actualHash = cryptoGuard.CalculateChecksum(ss);
+
+    EXPECT_EQ(actualHash, expectedHash);
+}
+
+TEST(CryptoGuardCtxTest, ChecksumInvalidStream) {
+    CryptoGuard::CryptoGuardCtx cryptoGuard;
+
+    std::stringstream ss;
+    ss.setstate(std::ios::failbit);
+
+    EXPECT_THROW(cryptoGuard.CalculateChecksum(ss), std::runtime_error);
 }

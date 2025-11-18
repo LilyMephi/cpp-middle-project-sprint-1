@@ -1,7 +1,5 @@
 #pragma once
 
-#include "chip_params.h"
-
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -9,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <iomanip>
+#include <array>
 
 #include <openssl/err.h>
 #include <openssl/evp.h>

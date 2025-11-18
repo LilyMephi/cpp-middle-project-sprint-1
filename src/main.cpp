@@ -1,3 +1,4 @@
+#include "chip_params.h"
 #include "cmd_options.h"
 #include "crypto_guard_ctx.h"
 #include <algorithm>
@@ -8,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 
-void EncryptExample(const std::string &input, std::string &output, const AesCipherParams &params) {
+void EncryptExample(const std::string &input, std::string &output, const chiperParams::AesCipherParams &params) {
     //
     // OpenSSL пример использования:
     //
@@ -51,10 +52,12 @@ int main(int argc, char *argv[]) {
 
         OpenSSL_add_all_algorithms();
 
-        auto params = CreateChiperParamsFromPassword("12341234");
+        auto params = chiperParams::CreateChiperParamsFromPassword("12341234");
         params.encrypt = 1;
 
         EncryptExample(input, output, params);
+
+        EVP_cleanup();
 
         CryptoGuard::ProgramOptions options;
 
@@ -68,7 +71,7 @@ int main(int argc, char *argv[]) {
 
         std::fstream output_file(options.GetOutputFile().c_str(), std::ios::out | std::ios::trunc);
         if (!output_file.is_open())
-            throw std::runtime_error { "Couldn't open the output file" };
+            throw std::runtime_error{"Couldn't open the output file"};
 
         using COMMAND_TYPE = CryptoGuard::ProgramOptions::COMMAND_TYPE;
         switch (options.GetCommand()) {
@@ -83,7 +86,7 @@ int main(int argc, char *argv[]) {
             break;
 
         case COMMAND_TYPE::CHECKSUM:
-            std::cout << "Checksum: \n"<< cryptoCtx.CalculateChecksum(input_file);
+            std::cout << "Checksum: \n" << cryptoCtx.CalculateChecksum(input_file);
             break;
 
         default:
@@ -92,7 +95,6 @@ int main(int argc, char *argv[]) {
 
         input_file.close();
         output_file.close();
-        EVP_cleanup();
 
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;

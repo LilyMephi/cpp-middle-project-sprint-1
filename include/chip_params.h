@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+namespace chiperParams{
 struct AesCipherParams {
     static const size_t KEY_SIZE = 32;             // AES-256 key size
     static const size_t IV_SIZE = 16;              // AES block size (IV length)
@@ -30,4 +31,6 @@ inline AesCipherParams CreateChiperParamsFromPassword(std::string_view password)
     }
 
     return params;
+}
+
 }

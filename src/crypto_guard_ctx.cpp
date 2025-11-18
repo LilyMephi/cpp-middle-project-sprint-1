@@ -2,25 +2,53 @@
 
 namespace CryptoGuard {
 
+struct AesCipherParams {
+    static const size_t KEY_SIZE = 32;             // AES-256 key size
+    static const size_t IV_SIZE = 16;              // AES block size (IV length)
+    const EVP_CIPHER *cipher = EVP_aes_256_cbc();  // Cipher algorithm
+
+    int encrypt;                              // 1 for encryption, 0 for decryption
+    std::array<unsigned char, KEY_SIZE> key;  // Encryption key
+    std::array<unsigned char, IV_SIZE> iv;    // Initialization vector
+};
+
 class CryptoGuardCtx::Impl {
 public:
     Impl() {
+        OpenSSL_add_all_algorithms();
         ctx_ = EVP_CIPHER_CTX_new();
         if (!ctx_)
             throw std::runtime_error("Failed to create EVP_CIPHER_CTX");
     }
 
     EVP_CIPHER_CTX *GetCtx() { return ctx_; }
+    void CreateChiperParamsFromPassword(std::string_view password) {
+        constexpr std::array<unsigned char, 8> salt = {'1', '2', '3', '4', '5', '6', '7', '8'};
+
+        int result = EVP_BytesToKey(params.cipher, EVP_sha256(), salt.data(),
+                                    reinterpret_cast<const unsigned char *>(password.data()), password.size(), 1,
+                                    params.key.data(), params.iv.data());
+
+        if (result == 0) {
+            throw std::runtime_error{"Failed to create a key from password"};
+        }
+
+        return;
+    }
+    void setEncrypt(int encrypt) { params.encrypt = encrypt; }
+    const AesCipherParams &getParams() { return params; }
 
     ~Impl() {
         if (ctx_) {
             EVP_CIPHER_CTX_free(ctx_);
             ctx_ = nullptr;
         }
+        EVP_cleanup();
     }
 
 private:
     EVP_CIPHER_CTX *ctx_;
+    AesCipherParams params;
 };
 
 std::string CryptoGuardCtx::get_openssl_error() const {
@@ -43,12 +71,11 @@ void CryptoGuardCtx::EncryptFile(std::iostream &inStream, std::iostream &outStre
         throw std::runtime_error{"Wrong input parametrs"};
     }
 
-    AesCipherParams params = CreateChiperParamsFromPassword(password);
-    params.encrypt = 1;
-
     pImpl_ = std::make_unique<Impl>();
-    if (!EVP_CipherInit_ex(pImpl_->GetCtx(), params.cipher, nullptr, params.key.data(), params.iv.data(),
-                           params.encrypt)) {
+    pImpl_->CreateChiperParamsFromPassword(password);
+    pImpl_->setEncrypt(1);
+    if (!EVP_CipherInit_ex(pImpl_->GetCtx(), pImpl_->getParams().cipher, nullptr, pImpl_->getParams().key.data(),
+                           pImpl_->getParams().iv.data(), pImpl_->getParams().encrypt)) {
         throw std::runtime_error{"Error: cipher init failed: " + get_openssl_error() + "\n"};
         return;
     }
@@ -83,12 +110,11 @@ void CryptoGuardCtx::DecryptFile(std::iostream &inStream, std::iostream &outStre
         throw std::runtime_error{"Wrong input parametrs"};
     }
 
-    AesCipherParams params = CreateChiperParamsFromPassword(password);
-    params.encrypt = 0;
-
     pImpl_ = std::make_unique<Impl>();
-    if (!EVP_CipherInit_ex(pImpl_->GetCtx(), params.cipher, nullptr, params.key.data(), params.iv.data(),
-                           params.encrypt)) {
+    pImpl_->CreateChiperParamsFromPassword(password);
+    pImpl_->setEncrypt(0);
+    if (!EVP_CipherInit_ex(pImpl_->GetCtx(), pImpl_->getParams().cipher, nullptr, pImpl_->getParams().key.data(),
+                           pImpl_->getParams().iv.data(), pImpl_->getParams().encrypt)) {
         throw std::runtime_error{"Error: cipher init failed: " + get_openssl_error() + "\n"};
         return;
     }
@@ -122,33 +148,44 @@ std::string CryptoGuardCtx::CalculateChecksum(std::iostream &inStream) {
     if (!inStream) {
         throw std::runtime_error{"Wrong input stream"};
     }
-    SHA256_CTX sha256;
-    if (!SHA256_Init(&sha256)) {
-        throw std::runtime_error{"Error: SHA256 init failed"};
+
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+    if (!mdctx) {
+        throw std::runtime_error{"Error: EVP_MD_CTX_new failed"};
     }
 
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    std::vector<unsigned char> buffer(4096);
+    const EVP_MD *md = EVP_sha256();
+    if (EVP_DigestInit_ex(mdctx, md, nullptr) != 1) {
+        EVP_MD_CTX_free(mdctx);
+        throw std::runtime_error{"Error: EVP_DigestInit_ex failed"};
+    }
 
+    std::vector<unsigned char> buffer(4096);
     while (true) {
         inStream.read(reinterpret_cast<char *>(buffer.data()), buffer.size());
-        std::streamsize bufferLen = inStream.gcount();
+        std::streamsize bytesRead = inStream.gcount();
 
-        if (bufferLen <= 0)
+        if (bytesRead <= 0)
             break;
 
-        if (!SHA256_Update(&sha256, buffer.data(), bufferLen)) {
-            throw std::runtime_error{"Error: SHA256 update failed"};
-        }
-
-        if (!SHA256_Final(hash, &sha256)) {
-            throw std::runtime_error{"Error: SHA256 final failed"};
+        if (EVP_DigestUpdate(mdctx, buffer.data(), bytesRead) != 1) {
+            EVP_MD_CTX_free(mdctx);
+            throw std::runtime_error{"Error: EVP_DigestUpdate failed"};
         }
     }
+
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int hashLen = 0;
+    if (EVP_DigestFinal_ex(mdctx, hash, &hashLen) != 1) {
+        EVP_MD_CTX_free(mdctx);
+        throw std::runtime_error{"Error: EVP_DigestFinal_ex failed"};
+    }
+
+    EVP_MD_CTX_free(mdctx);
+
     std::stringstream ss;
     ss << std::hex << std::setfill('0');
-
-    for (size_t i = 0; i < SHA256_DIGEST_LENGTH; ++i) {
+    for (unsigned int i = 0; i < hashLen; ++i) {
         ss << std::setw(2) << static_cast<unsigned int>(hash[i]);
     }
 

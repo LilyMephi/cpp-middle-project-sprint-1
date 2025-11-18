@@ -212,3 +212,13 @@ TEST(CryptoGuardCtxTest, ManyCryption) {
         current_data = decrypted;
     }
 }
+
+TEST(CryptoGuardChecksumTest, CheckSum) {
+    CryptoGuard::CryptoGuardCtx cryptoCtx;
+    std::string content = "Hello, World";
+    std::stringstream InStream(content);
+    
+    std::string checksum = cryptoCtx.CalculateChecksum(InStream);
+
+    EXPECT_FALSE(checksum.empty());
+}

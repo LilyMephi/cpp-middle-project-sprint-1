@@ -118,4 +118,40 @@ void CryptoGuardCtx::DecryptFile(std::iostream &inStream, std::iostream &outStre
     outStream.write(reinterpret_cast<const char *>(outBuf.data()), outLen);
 }
 
+std::string CryptoGuardCtx::CalculateChecksum(std::iostream &inStream) {
+    if (!inStream) {
+        throw std::runtime_error{"Wrong input stream"};
+    }
+    SHA256_CTX sha256;
+    if (!SHA256_Init(&sha256)) {
+        throw std::runtime_error{"Error: SHA256 init failed"};
+    }
+
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    std::vector<unsigned char> buffer(4096);
+
+    while (true) {
+        inStream.read(reinterpret_cast<char *>(buffer.data()), buffer.size());
+        std::streamsize bufferLen = inStream.gcount();
+
+        if (bufferLen <= 0)
+            break;
+
+        if (!SHA256_Update(&sha256, buffer.data(), bufferLen)) {
+            throw std::runtime_error{"Error: SHA256 update failed"};
+        }
+
+        if (!SHA256_Final(hash, &sha256)) {
+            throw std::runtime_error{"Error: SHA256 final failed"};
+        }
+    }
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+
+    for (size_t i = 0; i < SHA256_DIGEST_LENGTH; ++i) {
+        ss << std::setw(2) << static_cast<unsigned int>(hash[i]);
+    }
+
+    return ss.str();
+}
 }  // namespace CryptoGuard

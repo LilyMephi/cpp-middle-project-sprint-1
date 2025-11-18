@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 
         std::fstream output_file(options.GetOutputFile().c_str(), std::ios::out | std::ios::trunc);
         if (!output_file.is_open())
-            throw std::runtime_error { "Couldn't open the output file" }
+            throw std::runtime_error { "Couldn't open the output file" };
 
         using COMMAND_TYPE = CryptoGuard::ProgramOptions::COMMAND_TYPE;
         switch (options.GetCommand()) {
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
             break;
 
         case COMMAND_TYPE::CHECKSUM:
-            std::cout << "Checksum: \n CHECKSUM_NOT_IMPLEMENTED";
+            std::cout << "Checksum: \n"<< cryptoCtx.CalculateChecksum(input_file);
             break;
 
         default:

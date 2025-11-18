@@ -1,11 +1,11 @@
 
 #pragma once
 
-#include <string>
+#include <array>
 #include <openssl/evp.h>
 #include <stdexcept>
+#include <string>
 #include <vector>
-#include <array>
 
 struct AesCipherParams {
     static const size_t KEY_SIZE = 32;             // AES-256 key size
@@ -16,7 +16,6 @@ struct AesCipherParams {
     std::array<unsigned char, KEY_SIZE> key;  // Encryption key
     std::array<unsigned char, IV_SIZE> iv;    // Initialization vector
 };
-
 
 inline AesCipherParams CreateChiperParamsFromPassword(std::string_view password) {
     AesCipherParams params;

@@ -3,38 +3,43 @@
 namespace po = boost::program_options;
 namespace CryptoGuard {
 
-ProgramOptions::ProgramOptions() : desc_("Allowed options") {}
+ProgramOptions::ProgramOptions() : desc_("Allowed options") {
+    desc_.add_options()("help,h", "produce help message")(
+        "command,c", po::value<std::string>(&cmd_)->default_value("encrypt"), "command: encrypt, decrypt, checksum")(
+        "input,i", po::value<std::string>(&inputFile_)->required(), "input file path")(
+        "output,o", po::value<std::string>(&outputFile_)->default_value("output.txt"),
+        "output file path")("password,p", po::value<std::string>(&password_)->required(), "password");
+}
 
 ProgramOptions::~ProgramOptions() = default;
 
-void ProgramOptions::Parse(int argc, char *argv[]) {
-  std::string cmd;
-  desc_.add_options()
-    ("help,h", "produce help message")
-    ("command,c", po::value<std::string>(&cmd)->default_value("encrypt"), "command")
-    ("input,i", po::value<std::string>(&inputFile_)->required(), "input file path")
-    ("output,o", po::value<std::string>(&outputFile_)->default_value("output.txt"), "output file path")
-    ("password,p", po::value<std::string>(&password_), "password");
+bool ProgramOptions::Parse(int argc, char *argv[]) {
+    try {
+        po::variables_map vm;
+        po::store(po::parse_command_line(argc, argv, desc_), vm);
 
-  po::variables_map vm;
-  po::store(po::parse_command_line(argc, argv, desc_), vm);
+        if (argc == 1 || vm.count("help")) {
+            std::cout << desc_ << "\n";
+            return false;
+        }
 
-  if (vm.empty() || vm.count("help")) {
-    std::cout << desc_ << "\n";
-    std::exit(0);
-  }
-
-  po::notify(vm);
-  if(!cmd.empty()){
-    auto it = commandMapping_.find(cmd);
-    if (it != commandMapping_.end()) {
-      command_ = it->second;
-    } else {
-      std::cout << desc_ << "\n";
-      std::cerr << "error while parse args" << std::endl;
-      exit(-1);
+        po::notify(vm);
+    } catch (const po::error &e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        std::cerr << desc_ << "\n";
+        return false;
     }
-  }
+    if (!cmd_.empty()) {
+        auto it = commandMapping_.find(cmd_);
+        if (it != commandMapping_.end()) {
+            command_ = it->second;
+        } else {
+            std::cerr << "Unknown command: " << cmd_ << "\n";
+            std::cerr << desc_ << "\n";
+            return false;
+        }
+    }
+    return true;
 }
 
 }  // namespace CryptoGuard

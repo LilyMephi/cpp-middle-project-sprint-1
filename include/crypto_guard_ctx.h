@@ -1,12 +1,17 @@
 #pragma once
 
-#include <string>
-#include <openssl/evp.h>
-#include <stdexcept>
-#include <vector>
-#include <memory>
-#include <iostream>
 #include "chip_params.h"
+
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#include <openssl/err.h>
+#include <openssl/evp.h>
+
 namespace CryptoGuard {
 
 class CryptoGuardCtx {
@@ -26,6 +31,7 @@ public:
     std::string CalculateChecksum(std::iostream &inStream) { return "NOT_IMPLEMENTED"; }
 
 private:
+    std::string get_openssl_error() const;
     class Impl;
     std::unique_ptr<Impl> pImpl_;
 };

@@ -7,9 +7,9 @@ struct AesCipherParams {
     static const size_t IV_SIZE = 16;              // AES block size (IV length)
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();  // Cipher algorithm
 
-    int encrypt;                              // 1 for encryption, 0 for decryption
-    std::array<unsigned char, KEY_SIZE> key;  // Encryption key
-    std::array<unsigned char, IV_SIZE> iv;    // Initialization vector
+    int encrypt = 1;                              // 1 for encryption, 0 for decryption
+    std::array<unsigned char, KEY_SIZE> key{};  // Encryption key
+    std::array<unsigned char, IV_SIZE> iv{};    // Initialization vector
 };
 
 class CryptoGuardCtx::Impl {
@@ -25,7 +25,7 @@ public:
     void CreateChiperParamsFromPassword(std::string_view password) {
         constexpr std::array<unsigned char, 8> salt = {'1', '2', '3', '4', '5', '6', '7', '8'};
 
-        int result = EVP_BytesToKey(params.cipher, EVP_sha256(), salt.data(),
+        int32_t result = EVP_BytesToKey(params.cipher, EVP_sha256(), salt.data(),
                                     reinterpret_cast<const unsigned char *>(password.data()), password.size(), 1,
                                     params.key.data(), params.iv.data());
 
@@ -53,7 +53,7 @@ private:
 
 std::string CryptoGuardCtx::get_openssl_error() const {
     std::stringstream ss;
-    unsigned long error_code;
+    uint64_t error_code;
     char error_buf[256];
 
     while ((error_code = ERR_get_error()) != 0) {
@@ -77,13 +77,12 @@ void CryptoGuardCtx::EncryptFile(std::iostream &inStream, std::iostream &outStre
     if (!EVP_CipherInit_ex(pImpl_->GetCtx(), pImpl_->getParams().cipher, nullptr, pImpl_->getParams().key.data(),
                            pImpl_->getParams().iv.data(), pImpl_->getParams().encrypt)) {
         throw std::runtime_error{"Error: cipher init failed: " + get_openssl_error() + "\n"};
-        return;
     }
 
-    const size_t buffer_size = 16;
+    const size_t buffer_size = 4096;
     std::vector<unsigned char> outBuf(buffer_size + EVP_MAX_BLOCK_LENGTH);
     std::vector<unsigned char> inBuf(buffer_size);
-    int outLen;
+    int32_t outLen;
 
     while (true) {
         inStream.read(reinterpret_cast<char *>(inBuf.data()), inBuf.size());
@@ -93,14 +92,12 @@ void CryptoGuardCtx::EncryptFile(std::iostream &inStream, std::iostream &outStre
 
         if (!EVP_CipherUpdate(pImpl_->GetCtx(), outBuf.data(), &outLen, inBuf.data(), static_cast<int>(inLen))) {
             throw std::runtime_error{"Error: cipher update failed: " + get_openssl_error() + "\n"};
-            return;
         }
         outStream.write(reinterpret_cast<const char *>(outBuf.data()), outLen);
     }
 
     if (!EVP_CipherFinal_ex(pImpl_->GetCtx(), outBuf.data(), &outLen)) {
         throw std::runtime_error{"Error: cipher final failed: " + get_openssl_error() + "\n"};
-        return;
     }
     outStream.write(reinterpret_cast<const char *>(outBuf.data()), outLen);
 }
@@ -116,13 +113,12 @@ void CryptoGuardCtx::DecryptFile(std::iostream &inStream, std::iostream &outStre
     if (!EVP_CipherInit_ex(pImpl_->GetCtx(), pImpl_->getParams().cipher, nullptr, pImpl_->getParams().key.data(),
                            pImpl_->getParams().iv.data(), pImpl_->getParams().encrypt)) {
         throw std::runtime_error{"Error: cipher init failed: " + get_openssl_error() + "\n"};
-        return;
     }
 
-    const size_t buffer_size = 1024;
+    const size_t buffer_size = 4096;
     std::vector<unsigned char> outBuf(buffer_size + EVP_MAX_BLOCK_LENGTH);
     std::vector<unsigned char> inBuf(buffer_size);
-    int outLen;
+    int32_t outLen;
 
     while (true) {
         inStream.read(reinterpret_cast<char *>(inBuf.data()), inBuf.size());
@@ -132,14 +128,12 @@ void CryptoGuardCtx::DecryptFile(std::iostream &inStream, std::iostream &outStre
 
         if (!EVP_CipherUpdate(pImpl_->GetCtx(), outBuf.data(), &outLen, inBuf.data(), static_cast<int>(inLen))) {
             throw std::runtime_error{"Error: cipher update failed: " + get_openssl_error() + "\n"};
-            return;
         }
         outStream.write(reinterpret_cast<const char *>(outBuf.data()), outLen);
     }
 
     if (!EVP_CipherFinal_ex(pImpl_->GetCtx(), outBuf.data(), &outLen)) {
         throw std::runtime_error{"Error: cipher final failed: " + get_openssl_error() + "\n"};
-        return;
     }
     outStream.write(reinterpret_cast<const char *>(outBuf.data()), outLen);
 }
